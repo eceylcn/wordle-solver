@@ -1,7 +1,27 @@
 from collections import Counter
+import math
+from tqdm import tqdm
 
 with open("/Users/ece/Desktop/wordle-solver/words.txt") as f:
     all_words = [w.strip().lower() for w in f if len(w.strip()) == 5]
+
+def get_pattern(guess, answer):
+    pattern = ['X'] * 5
+    answer_chars = list(answer)
+    
+    for i in range(5):
+        if guess[i] == answer[i]:
+            pattern[i] = 'G'
+            answer_chars[i] = None
+    
+    for i in range(5):
+        if pattern[i] == 'G':
+            continue
+        if guess[i] in answer_chars:
+            pattern[i] = 'Y'
+            answer_chars[answer_chars.index(guess[i])] = None
+    
+    return ''.join(pattern)
 
 def matches(word, guess, result):
     for i, (g, r) in enumerate(zip(guess, result)):
@@ -22,13 +42,26 @@ def filter_words(words, guess, result):
     return [word for word in words if matches(word, guess, result)]
 
 def best_guess(words):
-    freq = Counter()
-    for word in words:
-        for letter in set(word):
-            freq[letter] += 1
-    def score(word):
-        return sum(freq[letter] for letter in set(word))
-    return max(words, key=score)
+    best_word = None
+    best_entropy = -1
+    
+    for guess in tqdm(words, desc="Calculating"):
+        pattern_counts = Counter()
+        for answer in words:
+            pattern = get_pattern(guess, answer)
+            pattern_counts[pattern] += 1
+        
+        entropy = 0
+        total = len(words)
+        for count in pattern_counts.values():
+            p = count / total
+            entropy -= p * math.log2(p)
+        
+        if entropy > best_entropy:
+            best_entropy = entropy
+            best_word = guess
+    
+    return best_word
 
 words = all_words.copy()
 
